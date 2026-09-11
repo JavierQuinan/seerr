@@ -115,19 +115,20 @@ export async function checkAvatarChanged(
   }
 }
 
-router.get('/:jellyfinUserId', async (req, res) => {
-  try {
-    if (!req.params.jellyfinUserId.match(/^[a-f0-9]{32}$/)) {
-      const mediaServerType = getSettings().main.mediaServerType;
-      throw new Error(
-        `Provided URL is not ${
-          mediaServerType === MediaServerType.JELLYFIN
-            ? 'a Jellyfin'
-            : 'an Emby'
-        } avatar.`
-      );
-    }
+router.get('/:jellyfinUserId', async (req, res, next) => {
+  if (!req.params.jellyfinUserId.match(/^[a-f0-9]{32}$/)) {
+    const mediaServerType = getSettings().main.mediaServerType;
+    return next({
+      status: 400,
+      message: `Provided URL is not ${
+        mediaServerType === MediaServerType.JELLYFIN
+          ? 'a Jellyfin'
+          : 'an Emby'
+      } avatar.`,
+    });
+  }
 
+  try {
     const avatarImageCache = await initAvatarImageProxy();
 
     const userEtag = req.headers['if-none-match'];
@@ -175,6 +176,10 @@ router.get('/:jellyfinUserId', async (req, res) => {
   } catch (e) {
     logger.error('Failed to proxy avatar image', {
       errorMessage: e.message,
+    });
+    return next({
+      status: 500,
+      message: 'Failed to proxy avatar image.',
     });
   }
 });
